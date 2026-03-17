@@ -1,0 +1,322 @@
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass
+
+from .seed_data import (
+    CONTACTS,
+    FAQ_ENTRIES,
+    MAIN_MENU,
+    SOCIAL_CONTRACT_STAGE_ONE_DOCUMENTS,
+    SOCIAL_CONTRACT_STAGE_TWO_DOCUMENTS,
+)
+
+
+@dataclass
+class BotMessage:
+    text: str
+    buttons: list[dict] | None = None
+
+
+class BotEngine:
+    def welcome_messages(self) -> list[BotMessage]:
+        return [
+            BotMessage(
+                text=(
+                    "Здравствуйте. Я чат-бот навигатор «СВОй». Помогу с мерами поддержки, "
+                    "социальным контрактом и связью со специалистом."
+                )
+            ),
+            BotMessage(
+                text="Пожалуйста, выберите категорию:",
+                buttons=[
+                    {"label": "Ветеран СВО", "value": "persona:veteran"},
+                    {"label": "Член семьи ветерана СВО", "value": "persona:family"},
+                ],
+            ),
+        ]
+
+    def handle(self, text: str, state: dict | None) -> tuple[list[BotMessage], dict]:
+        state = dict(state or {})
+        normalized = text.strip()
+        lowered = normalized.lower()
+
+        pending = state.get("pending")
+        if pending == "contact_full_name":
+            state["lead_full_name"] = normalized
+            state["pending"] = "contact_phone"
+            return [BotMessage(text="Укажите, пожалуйста, номер телефона для обратной связи.")], state
+
+        if pending == "contact_phone":
+            state["lead_phone"] = normalized
+            state["pending"] = "contact_message"
+            return [BotMessage(text="Если хотите, добавьте комментарий к заявке. Или отправьте «-», если комментарий не нужен.")], state
+
+        if pending == "contact_message":
+            state["lead_message"] = None if normalized == "-" else normalized
+            state["pending"] = None
+            state["create_contact_request"] = True
+            return [
+                BotMessage(text="Принято. Сохраняю заявку и передаю её специалисту."),
+                BotMessage(text="После этого можно вернуться в меню.", buttons=self._menu_buttons()),
+            ], state
+
+        if lowered in {"/start", "start", "привет", "здравствуйте", "начать"}:
+            return self.welcome_messages(), state
+
+        if lowered in {"меню", "главное меню", "назад"}:
+            return [BotMessage(text="Главное меню:", buttons=self._menu_buttons())], state
+
+        if lowered.startswith("persona:"):
+            persona = lowered.split(":", 1)[1]
+            state["persona"] = persona
+            persona_title = "ветеран СВО" if persona == "veteran" else "член семьи ветерана СВО"
+            return [
+                BotMessage(text=f"Категория выбрана: {persona_title}."),
+                BotMessage(text="Главное меню:", buttons=self._menu_buttons()),
+            ], state
+
+        if lowered == "menu:social_contract":
+            state["flow"] = "social_contract"
+            return [
+                BotMessage(
+                    text=(
+                        "В 2026 году доступны 2000 социальных контрактов по 350 000 рублей. "
+                        "Поможем сориентироваться по документам и следующим шагам."
+                    )
+                ),
+                BotMessage(
+                    text="Вы уже начали собирать документы?",
+                    buttons=[
+                        {"label": "Нужен бизнес-план", "value": "sc:business_plan"},
+                        {"label": "У меня есть вопросы", "value": "sc:questions"},
+                        {"label": "Как государство может помочь?", "value": "sc:state_help"},
+                        {"label": "Чек-лист документов", "value": "sc:checklist"},
+                        {"label": "Загрузка документов", "value": "sc:upload_documents"},
+                    ],
+                ),
+            ], state
+
+        if lowered == "sc:business_plan":
+            return [
+                BotMessage(
+                    text=(
+                        "Для бизнес-плана обычно готовят: данные заявителя, описание проекта, "
+                        "маркетинговый план, смету расходов, финансовый план и приложения."
+                    )
+                ),
+                BotMessage(
+                    text=(
+                        "Сразу посмотрите чек-лист: /checklists/social_contract_checklist.html"
+                    ),
+                    buttons=[
+                        {"label": "Чек-лист документов", "value": "sc:checklist"},
+                        {"label": "Загрузка документов", "value": "sc:upload_documents"},
+                        {"label": "Какую систему налогообложения выбрать?", "value": "faq:налогообложение"},
+                        {"label": "Как составить смету?", "value": "faq:смета"},
+                    ],
+                ),
+            ], state
+
+        if lowered == "sc:questions":
+            return [
+                BotMessage(
+                    text="Выберите частый вопрос или напишите свой текстом:",
+                    buttons=[
+                        {"label": "Какие данные указать о себе?", "value": "faq:какие данные"},
+                        {"label": "Что такое ОКВЭД?", "value": "faq:оквэд"},
+                        {"label": "Какую рекламу выбрать?", "value": "faq:реклама"},
+                        {"label": "Что писать в описании проекта?", "value": "faq:описание проекта"},
+                    ],
+                )
+            ], state
+
+        if lowered == "sc:state_help":
+            return [
+                BotMessage(
+                    text=(
+                        "Центр «Мой бизнес» помогает с бизнес-планированием, микрозаймами, "
+                        "гарантийной поддержкой, программой «СВОяТема», популяризацией продукции "
+                        "и другими мерами господдержки."
+                    )
+                ),
+                BotMessage(text="Что показать дальше?", buttons=[
+                    {"label": "Меры поддержки", "value": "menu:support"},
+                    {"label": "СВОяТема", "value": "menu:svoyatema"},
+                    {"label": "Консультация", "value": "menu:consult"},
+                ]),
+            ], state
+
+        if lowered == "sc:checklist":
+            return [
+                BotMessage(
+                    text=(
+                        "Откройте чек-лист документов: /checklists/social_contract_checklist.html\n\n"
+                        "Коротко: личные данные, описание проекта, ОКВЭД, налогообложение, "
+                        "смета расходов, финансовый план, приложения и подтверждающие документы."
+                    ),
+                    buttons=[
+                        {"label": "Загрузка документов", "value": "sc:upload_documents"},
+                        {"label": "Нужен бизнес-план", "value": "sc:business_plan"},
+                        {"label": "Консультация", "value": "menu:consult"},
+                    ],
+                )
+            ], state
+
+        if lowered in {"sc:upload_documents", "загрузка документов", "загрузить документы", "прикрепить документы"}:
+            return self._social_contract_upload_messages(), state
+
+        if lowered == "menu:support":
+            return [
+                BotMessage(
+                    text=(
+                        "Доступны меры поддержки: сертификация и стандартизация, программа «Быстрый старт», "
+                        "регистрация товарного знака, участие в выставках и бизнес-миссиях, полиграфия, "
+                        "гарантийная поддержка, аренда рабочих пространств и оборудования."
+                    )
+                ),
+                BotMessage(
+                    text="Также доступны финансовые продукты через АНО «МКК ДНР».",
+                    buttons=[
+                        {"label": "Финансовые меры", "value": "faq:микрокредит"},
+                        {"label": "Как получить меру поддержки?", "value": "faq:как получить"},
+                        {"label": "Консультация", "value": "menu:consult"},
+                    ],
+                ),
+            ], state
+
+        if lowered == "menu:svoyatema":
+            return [
+                BotMessage(
+                    text=(
+                        "«СВОяТема!» — это проект для ветеранов СВО и членов их семей: "
+                        "разбор бизнес-идеи, подбор мер поддержки, образовательные мероприятия "
+                        "и сопровождение бизнес-проекта."
+                    )
+                ),
+                BotMessage(text="Можно перейти к специалисту или вернуться в меню.", buttons=[
+                    {"label": "Оставить заявку", "value": "consult:leave_request"},
+                    {"label": "Главное меню", "value": "menu:root"},
+                ]),
+            ], state
+
+        if lowered in {"menu:consult", "consult", "консультация"}:
+            return [
+                BotMessage(
+                    text=(
+                        "Я могу предложить три варианта: оставить заявку, показать контакты или подсказать адреса для визита."
+                    ),
+                    buttons=[
+                        {"label": "Оставить заявку", "value": "consult:leave_request"},
+                        {"label": "Контакты для связи", "value": "consult:contacts"},
+                        {"label": "Записаться / прийти в центр", "value": "consult:visit"},
+                    ],
+                )
+            ], state
+
+        if lowered == "consult:leave_request":
+            state["pending"] = "contact_full_name"
+            return [BotMessage(text="Хорошо. Укажите, пожалуйста, ФИО полностью.")], state
+
+        if lowered == "consult:contacts":
+            return [BotMessage(text=self._contacts_text(), buttons=self._menu_buttons())], state
+
+        if lowered == "consult:visit":
+            return [
+                BotMessage(
+                    text=(
+                        f"Вы можете обратиться лично:\n"
+                        f"• {CONTACTS['donetsk']}\n"
+                        f"• {CONTACTS['mariupol']}\n\n"
+                        f"Телефоны: {CONTACTS['phone_main']}, {CONTACTS['phone_mariupol']}\n"
+                        f"Email: {CONTACTS['email']}"
+                    ),
+                    buttons=[
+                        {"label": "Оставить заявку", "value": "consult:leave_request"},
+                        {"label": "Главное меню", "value": "menu:root"},
+                    ],
+                )
+            ], state
+
+        if lowered == "menu:root":
+            return [BotMessage(text="Главное меню:", buttons=self._menu_buttons())], state
+
+        faq_answer = self._search_faq(lowered)
+        if faq_answer:
+            return [BotMessage(text=faq_answer, buttons=self._menu_buttons())], state
+
+        return [
+            BotMessage(
+                text=(
+                    "Я пока не нашёл точный ответ. Попробуйте выбрать раздел меню или оставьте заявку специалисту."
+                ),
+                buttons=[
+                    {"label": "Главное меню", "value": "menu:root"},
+                    {"label": "Оставить заявку", "value": "consult:leave_request"},
+                    {"label": "Контакты", "value": "consult:contacts"},
+                ],
+            )
+        ], state
+
+    def _contacts_text(self) -> str:
+        return (
+            f"Контакты Центра «Мой бизнес»:\n"
+            f"• Телефон: {CONTACTS['phone_main']}\n"
+            f"• Доп. телефон: {CONTACTS['phone_mariupol']}\n"
+            f"• Email: {CONTACTS['email']}\n"
+            f"• Донецк: {CONTACTS['donetsk']}\n"
+            f"• Мариуполь: {CONTACTS['mariupol']}\n"
+            f"• Сайт: {CONTACTS['site']}"
+        )
+
+    def _menu_buttons(self) -> list[dict]:
+        return MAIN_MENU
+
+    def _social_contract_upload_messages(self) -> list[BotMessage]:
+        stage_one = "\n".join(f"• {item}" for item in SOCIAL_CONTRACT_STAGE_ONE_DOCUMENTS)
+        stage_two = "\n".join(f"• {item}" for item in SOCIAL_CONTRACT_STAGE_TWO_DOCUMENTS)
+
+        return [
+            BotMessage(
+                text=(
+                    "Для примера можно подготовить и загрузить такие документы.\n\n"
+                    "Этап 1. Для рекомендации в фонде «Защитники Отечества»:\n"
+                    f"{stage_one}\n\n"
+                    "Этап 2. Для подачи в орган соцзащиты:\n"
+                    f"{stage_two}\n\n"
+                    "Часть документов нужна не всем. Загружайте только то, что относится к вашей ситуации."
+                )
+            ),
+            BotMessage(
+                text=(
+                    "Ниже можно открыть форму загрузки документов. Пока это демо-режим: "
+                    "файлы остаются только в интерфейсе, не отправляются на сервер и не сохраняются в БД."
+                ),
+                buttons=[
+                    {"label": "Открыть загрузку документов", "value": "action:upload_documents"},
+                    {"label": "Чек-лист документов", "value": "sc:checklist"},
+                    {"label": "Консультация", "value": "menu:consult"},
+                ],
+            ),
+        ]
+
+    def _search_faq(self, query: str) -> str | None:
+        raw = query.removeprefix("faq:").strip()
+        tokens = {token for token in re.split(r"\W+", raw) if len(token) > 1}
+        if not tokens and raw:
+            tokens = {raw}
+
+        best_score = 0
+        best_answer = None
+        for entry in FAQ_ENTRIES:
+            haystack = " ".join([entry["title"], *entry["keywords"]]).lower()
+            score = sum(1 for token in tokens if token in haystack)
+            if raw and raw in haystack:
+                score += 2
+            if score > best_score:
+                best_score = score
+                best_answer = entry["answer"]
+
+        if best_score > 0:
+            return best_answer
+        return None

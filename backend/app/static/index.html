@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Чат-бот «СВОй»</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div class="page-shell">
+    <div class="widget-card">
+      <header class="widget-header">
+        <div>
+          <p class="eyebrow">Центр «Мой бизнес»</p>
+          <h1>Чат-бот «СВОй»</h1>
+          <p class="subtitle">Навигация по мерам поддержки и социальному контракту</p>
+        </div>
+        <button id="resetChatBtn" class="ghost-btn" type="button">Новая сессия</button>
+      </header>
+
+      <main id="messages" class="messages"></main>
+
+      <form id="chatForm" class="chat-form">
+        <section id="uploadPanel" class="upload-panel" hidden>
+          <div class="upload-panel-header">
+            <div>
+              <strong>Загрузка документов</strong>
+              <p>Добавьте сканы, фото, PDF или Word-файлы из перечня, который показал бот.</p>
+            </div>
+            <span class="upload-badge">Демо-режим</span>
+          </div>
+
+          <div class="upload-panel-actions">
+            <button id="pickDocumentsBtn" class="secondary-btn" type="button">Выбрать файлы</button>
+            <button id="clearDocumentsBtn" class="ghost-btn compact-btn" type="button">Очистить список</button>
+          </div>
+
+          <p id="uploadStatus" class="upload-status">
+            Файлы не отправляются на сервер и не сохраняются в базе данных.
+          </p>
+
+          <input
+            id="documentUploadInput"
+            type="file"
+            accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+            multiple
+            hidden
+          />
+
+          <ul id="uploadedDocumentsList" class="upload-list"></ul>
+        </section>
+
+        <input id="chatInput" type="text" placeholder="Напишите вопрос или выберите кнопку ниже" autocomplete="off" />
+        <button class="send-btn" type="submit">Отправить</button>
+      </form>
+
+      <footer class="widget-footer">
+        <div class="footer-grid">
+          <div>
+            <strong>Контакты</strong>
+            <p>+7 (949) 568-44-53<br>inform@mb180.ru</p>
+          </div>
+          <div>
+            <strong>Адреса</strong>
+            <p>Донецк, пр. Дзержинского, 13<br>Мариуполь, пр. Металлургов, 88А</p>
+          </div>
+        </div>
+      </footer>
+    </div>
+  </div>
+
+  <template id="messageTemplate">
+    <div class="message-row">
+      <div class="message-bubble"></div>
+      <div class="button-row"></div>
+    </div>
+  </template>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
