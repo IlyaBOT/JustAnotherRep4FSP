@@ -152,11 +152,15 @@ body {
 
 .chat-form {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: 1fr auto;
   gap: 10px;
   padding: 16px 18px;
   border-top: 1px solid var(--line);
   background: #fff;
+}
+
+.chat-form.upload-mode {
+  grid-template-columns: auto 1fr auto;
 }
 
 .upload-trigger-btn {

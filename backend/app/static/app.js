@@ -88,6 +88,7 @@ function syncUploadButton(messages) {
   const showUploadButton = Boolean(lastAssistantMessage?.meta?.show_upload_button);
 
   uploadDocumentsBtn.hidden = !showUploadButton;
+  chatForm.classList.toggle('upload-mode', showUploadButton);
   if (!showUploadButton) {
     resetUploadState();
     return;
@@ -97,12 +98,12 @@ function syncUploadButton(messages) {
 }
 
 function addLocalFiles(fileList) {
-  const files = Array.from(fileList || []).map((file) => ({ name: file.name, size: file.size }));
+  const files = Array.from(fileList || []);
   if (!files.length) return;
 
-  const seen = new Set(localUploadedFiles.map((file) => `${file.name}:${file.size}`));
+  const seen = new Set(localUploadedFiles.map((file) => `${file.name}:${file.size}:${file.lastModified}`));
   const uniqueFiles = files.filter((file) => {
-    const key = `${file.name}:${file.size}`;
+    const key = `${file.name}:${file.size}:${file.lastModified}`;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -114,6 +115,30 @@ function addLocalFiles(fileList) {
 
   localUploadedFiles = [...localUploadedFiles, ...uniqueFiles];
   updateUploadButtonState();
+}
+
+async function sendMessageWithFiles(text) {
+  const formData = new FormData();
+  formData.append('session_id', sessionId);
+  formData.append('text', text);
+  localUploadedFiles.forEach((file) => {
+    formData.append('files', file, file.name);
+  });
+
+  const res = await fetch('/api/chat/message-with-files', {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!res.ok) {
+    renderMessage({ role: 'assistant', text: 'Ошибка загрузки файлов. Попробуйте ещё раз.', buttons: null });
+    return;
+  }
+
+  const data = await res.json();
+  chatInput.value = '';
+  resetUploadState();
+  renderMessages(data.messages);
 }
 
 async function startSession() {
@@ -170,6 +195,11 @@ async function sendMessage(text, echoUser = true, displayText = null) {
 chatForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   const text = chatInput.value.trim();
+  if (localUploadedFiles.length) {
+    await sendMessageWithFiles(text);
+    return;
+  }
+
   chatInput.value = '';
   await sendMessage(text, true);
 });

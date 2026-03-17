@@ -316,7 +316,8 @@ class BotEngine:
             BotMessage(
                 text=(
                     "Когда будете готовы, нажмите кнопку «Загрузить файлы» рядом с отправкой сообщения. "
-                    "Это демо-режим: файлы останутся только в интерфейсе и не сохраняются в БД."
+                    "После нажатия «Отправить» файлы уйдут на сервер, а я отвечу по факту загрузки. "
+                    "При этом документы всё равно не сохраняются в базе данных."
                 ),
                 buttons=[
                     {"label": "Список документов", "value": "sc:checklist"},
@@ -346,3 +347,84 @@ class BotEngine:
         if best_score > 0:
             return best_answer
         return None
+
+    def handle_uploaded_documents(
+        self,
+        files: list[dict],
+        state: dict | None,
+        comment: str | None = None,
+    ) -> tuple[list[BotMessage], dict]:
+        state = dict(state or {})
+        state["show_upload_button"] = True
+
+        file_names = [file["name"] for file in files if file.get("name")]
+        recognized = self._recognize_uploaded_documents(file_names)
+        missing = [item for item in self._upload_document_targets() if item not in recognized]
+
+        uploaded_list = "\n".join(f"• {name}" for name in file_names)
+        recognized_text = (
+            "По названиям файлов я распознал такие документы:\n"
+            + "\n".join(f"• {item}" for item in recognized)
+            if recognized
+            else "По названиям файлов я не смог точно определить тип документов, но загрузку принял."
+        )
+        missing_text = (
+            "Для полного пакета обычно ещё проверяют:\n"
+            + "\n".join(f"• {item}" for item in missing[:5])
+            if missing
+            else "По базовому списку у вас уже выглядит собранным основной пакет документов."
+        )
+        comment_text = f"Комментарий к отправке: {comment}\n\n" if comment else ""
+
+        return [
+            BotMessage(
+                text=(
+                    f"{comment_text}Принял файлы:\n"
+                    f"{uploaded_list}\n\n"
+                    f"{recognized_text}\n\n"
+                    f"{missing_text}\n\n"
+                    "Файлы отправлены на сервер, но в этой версии не сохраняются в базе данных."
+                ),
+                buttons=[
+                    {"label": "Загрузить ещё документы", "value": "sc:upload_documents"},
+                    {"label": "Список документов", "value": "sc:checklist"},
+                    {"label": "Консультация", "value": "menu:consult"},
+                ],
+                meta={"show_upload_button": True},
+            )
+        ], state
+
+    def _upload_document_targets(self) -> list[str]:
+        return [
+            "Паспорт",
+            "СНИЛС",
+            "Удостоверение ветерана боевых действий",
+            "Свидетельство о браке",
+            "Справка МСЭ",
+            "Рекомендация фонда «Защитники Отечества»",
+            "Бизнес-план",
+            "Справка из Центра занятости",
+            "Документы на помещение",
+            "Реквизиты счёта",
+        ]
+
+    def _recognize_uploaded_documents(self, file_names: list[str]) -> list[str]:
+        catalog = {
+            "Паспорт": ("паспорт", "passport"),
+            "СНИЛС": ("снилс", "snils"),
+            "Удостоверение ветерана боевых действий": ("ветеран", "боевых", "удостовер"),
+            "Свидетельство о браке": ("брак", "свидетельство"),
+            "Справка МСЭ": ("мсэ", "инвалид"),
+            "Рекомендация фонда «Защитники Отечества»": ("рекомендац", "защитник"),
+            "Бизнес-план": ("бизнес", "план", "business"),
+            "Справка из Центра занятости": ("занятост", "безработ", "ищущ"),
+            "Документы на помещение": ("аренд", "помещен", "собствен", "гарантийн"),
+            "Реквизиты счёта": ("счет", "счёт", "реквизит", "bank"),
+        }
+
+        normalized_names = [name.lower().replace("ё", "е") for name in file_names]
+        recognized: list[str] = []
+        for label, keywords in catalog.items():
+            if any(any(keyword in name for keyword in keywords) for name in normalized_names):
+                recognized.append(label)
+        return recognized
