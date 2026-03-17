@@ -152,105 +152,15 @@ body {
 
 .chat-form {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: auto 1fr auto;
   gap: 10px;
   padding: 16px 18px;
   border-top: 1px solid var(--line);
   background: #fff;
 }
 
-.upload-panel {
-  grid-column: 1 / -1;
-  border: 1px solid var(--line);
-  border-radius: 18px;
-  padding: 16px;
-  background:
-    linear-gradient(180deg, rgba(31, 79, 143, 0.06), rgba(31, 79, 143, 0.02)),
-    #f8fbff;
-  display: grid;
-  gap: 12px;
-}
-
-.upload-panel-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.upload-panel-header p {
-  margin: 6px 0 0;
-  color: var(--muted);
-  font-size: 14px;
-}
-
-.upload-badge {
-  padding: 6px 10px;
-  border-radius: 999px;
-  background: rgba(31, 79, 143, 0.1);
-  color: var(--primary-dark);
-  font-size: 12px;
-  font-weight: 700;
+.upload-trigger-btn {
   white-space: nowrap;
-}
-
-.upload-panel-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.secondary-btn,
-.compact-btn {
-  padding: 10px 14px;
-}
-
-.secondary-btn {
-  border: none;
-  border-radius: 12px;
-  background: var(--primary);
-  color: #fff;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.upload-status {
-  margin: 0;
-  color: var(--muted);
-  font-size: 14px;
-}
-
-.upload-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 8px;
-}
-
-.upload-item,
-.upload-empty {
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  padding: 12px 14px;
-  background: #fff;
-}
-
-.upload-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.upload-name {
-  font-weight: 600;
-}
-
-.upload-meta,
-.upload-empty {
-  color: var(--muted);
-  font-size: 14px;
 }
 
 .chat-form input {
@@ -313,16 +223,6 @@ body {
 
   .message-row {
     max-width: 100%;
-  }
-
-  .chat-form {
-    grid-template-columns: 1fr;
-  }
-
-  .upload-panel-header,
-  .upload-item {
-    flex-direction: column;
-    align-items: flex-start;
   }
 
   .footer-grid {

@@ -3,12 +3,8 @@ const chatForm = document.getElementById('chatForm');
 const chatInput = document.getElementById('chatInput');
 const resetChatBtn = document.getElementById('resetChatBtn');
 const template = document.getElementById('messageTemplate');
-const uploadPanel = document.getElementById('uploadPanel');
-const pickDocumentsBtn = document.getElementById('pickDocumentsBtn');
-const clearDocumentsBtn = document.getElementById('clearDocumentsBtn');
 const documentUploadInput = document.getElementById('documentUploadInput');
-const uploadStatus = document.getElementById('uploadStatus');
-const uploadedDocumentsList = document.getElementById('uploadedDocumentsList');
+const uploadDocumentsBtn = document.getElementById('uploadDocumentsBtn');
 
 const STORAGE_KEY = 'svoy-chat-session-id';
 let sessionId = localStorage.getItem(STORAGE_KEY);
@@ -35,14 +31,7 @@ function renderMessage(message) {
       btn.type = 'button';
       btn.className = 'quick-btn';
       btn.textContent = button.label;
-      btn.addEventListener('click', () => {
-        if (button.value?.startsWith('action:')) {
-          handleAction(button.value);
-          return;
-        }
-
-        sendMessage(button.value, true, button.label);
-      });
+      btn.addEventListener('click', () => sendMessage(button.value, true, button.label));
       buttonRow.appendChild(btn);
     });
   } else {
@@ -56,6 +45,7 @@ function renderMessage(message) {
 function renderMessages(messages) {
   messagesNode.innerHTML = '';
   messages.forEach(renderMessage);
+  syncUploadButton(messages);
 }
 
 function formatFileSize(size) {
@@ -74,54 +64,36 @@ function formatFileSize(size) {
   return `${rounded} ${units[unitIndex]}`;
 }
 
-function setUploadStatus(text) {
-  uploadStatus.textContent = text;
-}
-
-function renderUploadList() {
-  uploadedDocumentsList.innerHTML = '';
-
-  if (!localUploadedFiles.length) {
-    const emptyItem = document.createElement('li');
-    emptyItem.className = 'upload-empty';
-    emptyItem.textContent = 'Пока нет выбранных файлов. Выберите документы из перечня и добавьте их сюда.';
-    uploadedDocumentsList.appendChild(emptyItem);
-    clearDocumentsBtn.hidden = true;
-    return;
-  }
-
-  clearDocumentsBtn.hidden = false;
-
-  localUploadedFiles.forEach((file) => {
-    const item = document.createElement('li');
-    item.className = 'upload-item';
-
-    const name = document.createElement('span');
-    name.className = 'upload-name';
-    name.textContent = file.name;
-
-    const meta = document.createElement('span');
-    meta.className = 'upload-meta';
-    meta.textContent = formatFileSize(file.size);
-
-    item.append(name, meta);
-    uploadedDocumentsList.appendChild(item);
-  });
-}
-
 function resetUploadState() {
   localUploadedFiles = [];
   documentUploadInput.value = '';
-  uploadPanel.hidden = true;
-  setUploadStatus('Файлы не отправляются на сервер и не сохраняются в базе данных.');
-  renderUploadList();
+  uploadDocumentsBtn.textContent = 'Загрузить файлы';
+  uploadDocumentsBtn.title = '';
 }
 
-function openUploadPanel() {
-  uploadPanel.hidden = false;
-  setUploadStatus('Выберите файлы. Это демонстрационная загрузка: документы останутся только в интерфейсе.');
-  renderUploadList();
-  uploadPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+function updateUploadButtonState() {
+  if (!localUploadedFiles.length) {
+    uploadDocumentsBtn.textContent = 'Загрузить файлы';
+    uploadDocumentsBtn.title = '';
+    return;
+  }
+
+  const totalSize = localUploadedFiles.reduce((sum, file) => sum + file.size, 0);
+  uploadDocumentsBtn.textContent = `Файлы: ${localUploadedFiles.length}`;
+  uploadDocumentsBtn.title = `${localUploadedFiles.map((file) => file.name).join(', ')} • ${formatFileSize(totalSize)}`;
+}
+
+function syncUploadButton(messages) {
+  const lastAssistantMessage = [...messages].reverse().find((message) => message.role === 'assistant');
+  const showUploadButton = Boolean(lastAssistantMessage?.meta?.show_upload_button);
+
+  uploadDocumentsBtn.hidden = !showUploadButton;
+  if (!showUploadButton) {
+    resetUploadState();
+    return;
+  }
+
+  updateUploadButtonState();
 }
 
 function addLocalFiles(fileList) {
@@ -137,21 +109,11 @@ function addLocalFiles(fileList) {
   });
 
   if (!uniqueFiles.length) {
-    setUploadStatus('Эти файлы уже есть в списке. Добавьте другие документы или очистите список.');
     return;
   }
 
   localUploadedFiles = [...localUploadedFiles, ...uniqueFiles];
-  setUploadStatus(
-    `Добавлено файлов: ${localUploadedFiles.length}. Они не отправлены на сервер и не сохранены в БД.`
-  );
-  renderUploadList();
-}
-
-function handleAction(action) {
-  if (action === 'action:upload_documents') {
-    openUploadPanel();
-  }
+  updateUploadButtonState();
 }
 
 async function startSession() {
@@ -218,15 +180,8 @@ resetChatBtn.addEventListener('click', async () => {
   await startSession();
 });
 
-pickDocumentsBtn.addEventListener('click', () => {
+uploadDocumentsBtn.addEventListener('click', () => {
   documentUploadInput.click();
-});
-
-clearDocumentsBtn.addEventListener('click', () => {
-  localUploadedFiles = [];
-  documentUploadInput.value = '';
-  setUploadStatus('Список очищен. Можно выбрать документы заново.');
-  renderUploadList();
 });
 
 documentUploadInput.addEventListener('change', (event) => {
@@ -234,5 +189,5 @@ documentUploadInput.addEventListener('change', (event) => {
   event.target.value = '';
 });
 
-renderUploadList();
+resetUploadState();
 loadHistory();

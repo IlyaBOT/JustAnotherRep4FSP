@@ -58,9 +58,9 @@ def start_chat(db: Session = Depends(get_db)):
 
     messages_out: list[MessageOut] = []
     for item in bot.welcome_messages():
-        message = ChatMessage(session_id=session.id, role="assistant", text=item.text, buttons=item.buttons)
+        message = ChatMessage(session_id=session.id, role="assistant", text=item.text, buttons=item.buttons, meta=item.meta)
         db.add(message)
-        messages_out.append(MessageOut(role="assistant", text=item.text, buttons=item.buttons))
+        messages_out.append(MessageOut(role="assistant", text=item.text, buttons=item.buttons, meta=item.meta))
 
     db.commit()
     return StartChatResponse(session_id=session.id, messages=messages_out)
@@ -76,7 +76,8 @@ def chat_history(session_id: str, db: Session = Depends(get_db)):
     return ChatResponse(
         session_id=session_id,
         messages=[
-            MessageOut(role=row.role, text=row.text, buttons=row.buttons, created_at=row.created_at) for row in rows
+            MessageOut(role=row.role, text=row.text, buttons=row.buttons, meta=row.meta, created_at=row.created_at)
+            for row in rows
         ],
     )
 
@@ -107,7 +108,7 @@ def chat_message(payload: ChatIn, db: Session = Depends(get_db)):
             pass
 
     for item in responses:
-        db.add(ChatMessage(session_id=session.id, role="assistant", text=item.text, buttons=item.buttons))
+        db.add(ChatMessage(session_id=session.id, role="assistant", text=item.text, buttons=item.buttons, meta=item.meta))
 
     db.commit()
 
@@ -115,7 +116,7 @@ def chat_message(payload: ChatIn, db: Session = Depends(get_db)):
     return ChatResponse(
         session_id=session.id,
         messages=[
-            MessageOut(role=row.role, text=row.text, buttons=row.buttons, created_at=row.created_at)
+            MessageOut(role=row.role, text=row.text, buttons=row.buttons, meta=row.meta, created_at=row.created_at)
             for row in latest_rows
         ],
     )

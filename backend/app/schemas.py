@@ -11,6 +11,7 @@ class MessageOut(BaseModel):
     role: str
     text: str
     buttons: list[Button] | None = None
+    meta: dict | None = None
     created_at: datetime | None = None
 
 

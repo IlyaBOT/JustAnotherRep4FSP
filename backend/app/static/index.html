@@ -21,35 +21,14 @@
       <main id="messages" class="messages"></main>
 
       <form id="chatForm" class="chat-form">
-        <section id="uploadPanel" class="upload-panel" hidden>
-          <div class="upload-panel-header">
-            <div>
-              <strong>Загрузка документов</strong>
-              <p>Добавьте сканы, фото, PDF или Word-файлы из перечня, который показал бот.</p>
-            </div>
-            <span class="upload-badge">Демо-режим</span>
-          </div>
-
-          <div class="upload-panel-actions">
-            <button id="pickDocumentsBtn" class="secondary-btn" type="button">Выбрать файлы</button>
-            <button id="clearDocumentsBtn" class="ghost-btn compact-btn" type="button">Очистить список</button>
-          </div>
-
-          <p id="uploadStatus" class="upload-status">
-            Файлы не отправляются на сервер и не сохраняются в базе данных.
-          </p>
-
-          <input
-            id="documentUploadInput"
-            type="file"
-            accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-            multiple
-            hidden
-          />
-
-          <ul id="uploadedDocumentsList" class="upload-list"></ul>
-        </section>
-
+        <input
+          id="documentUploadInput"
+          type="file"
+          accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+          multiple
+          hidden
+        />
+        <button id="uploadDocumentsBtn" class="ghost-btn upload-trigger-btn" type="button" hidden>Загрузить файлы</button>
         <input id="chatInput" type="text" placeholder="Напишите вопрос или выберите кнопку ниже" autocomplete="off" />
         <button class="send-btn" type="submit">Отправить</button>
       </form>

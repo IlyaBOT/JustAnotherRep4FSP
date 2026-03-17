@@ -16,6 +16,7 @@ from .seed_data import (
 class BotMessage:
     text: str
     buttons: list[dict] | None = None
+    meta: dict | None = None
 
 
 class BotEngine:
@@ -40,6 +41,22 @@ class BotEngine:
         state = dict(state or {})
         normalized = text.strip()
         lowered = normalized.lower()
+
+        if lowered in {"sc:upload_documents", "загрузка документов", "загрузить документы", "прикрепить документы"}:
+            state["show_upload_button"] = True
+        elif lowered.startswith(("menu:", "sc:", "consult:", "faq:", "persona:")) or lowered in {
+            "/start",
+            "start",
+            "привет",
+            "здравствуйте",
+            "начать",
+            "меню",
+            "главное меню",
+            "назад",
+            "consult",
+            "консультация",
+        }:
+            state["show_upload_button"] = False
 
         pending = state.get("pending")
         if pending == "contact_full_name":
@@ -91,7 +108,7 @@ class BotEngine:
                         {"label": "Нужен бизнес-план", "value": "sc:business_plan"},
                         {"label": "У меня есть вопросы", "value": "sc:questions"},
                         {"label": "Как государство может помочь?", "value": "sc:state_help"},
-                        {"label": "Чек-лист документов", "value": "sc:checklist"},
+                        {"label": "Список документов", "value": "sc:checklist"},
                         {"label": "Загрузка документов", "value": "sc:upload_documents"},
                     ],
                 ),
@@ -106,11 +123,9 @@ class BotEngine:
                     )
                 ),
                 BotMessage(
-                    text=(
-                        "Сразу посмотрите чек-лист: /checklists/social_contract_checklist.html"
-                    ),
+                    text="Если вы уже готовите пакет на соцконтракт, могу сразу показать список документов.",
                     buttons=[
-                        {"label": "Чек-лист документов", "value": "sc:checklist"},
+                        {"label": "Список документов", "value": "sc:checklist"},
                         {"label": "Загрузка документов", "value": "sc:upload_documents"},
                         {"label": "Какую систему налогообложения выбрать?", "value": "faq:налогообложение"},
                         {"label": "Как составить смету?", "value": "faq:смета"},
@@ -148,23 +163,10 @@ class BotEngine:
             ], state
 
         if lowered == "sc:checklist":
-            return [
-                BotMessage(
-                    text=(
-                        "Откройте чек-лист документов: /checklists/social_contract_checklist.html\n\n"
-                        "Коротко: личные данные, описание проекта, ОКВЭД, налогообложение, "
-                        "смета расходов, финансовый план, приложения и подтверждающие документы."
-                    ),
-                    buttons=[
-                        {"label": "Загрузка документов", "value": "sc:upload_documents"},
-                        {"label": "Нужен бизнес-план", "value": "sc:business_plan"},
-                        {"label": "Консультация", "value": "menu:consult"},
-                    ],
-                )
-            ], state
+            return self._social_contract_checklist_messages(state), state
 
         if lowered in {"sc:upload_documents", "загрузка документов", "загрузить документы", "прикрепить документы"}:
-            return self._social_contract_upload_messages(), state
+            return self._social_contract_upload_messages(state), state
 
         if lowered == "menu:support":
             return [
@@ -272,31 +274,55 @@ class BotEngine:
     def _menu_buttons(self) -> list[dict]:
         return MAIN_MENU
 
-    def _social_contract_upload_messages(self) -> list[BotMessage]:
+    def _social_contract_document_list_text(self) -> str:
         stage_one = "\n".join(f"• {item}" for item in SOCIAL_CONTRACT_STAGE_ONE_DOCUMENTS)
         stage_two = "\n".join(f"• {item}" for item in SOCIAL_CONTRACT_STAGE_TWO_DOCUMENTS)
+
+        return (
+            "Этап 1. Для рекомендации в фонде «Защитники Отечества»:\n"
+            f"{stage_one}\n\n"
+            "Этап 2. Для подачи в орган соцзащиты:\n"
+            f"{stage_two}\n\n"
+            "Часть документов нужна не всем. Ориентируйтесь на свою ситуацию."
+        )
+
+    def _social_contract_checklist_messages(self, state: dict) -> list[BotMessage]:
+        return [
+            BotMessage(
+                text=(
+                    "Вот примерный список документов, которые обычно готовят для социального контракта.\n\n"
+                    f"{self._social_contract_document_list_text()}"
+                ),
+                buttons=[
+                    {"label": "Загрузка документов", "value": "sc:upload_documents"},
+                    {"label": "Нужен бизнес-план", "value": "sc:business_plan"},
+                    {"label": "Консультация", "value": "menu:consult"},
+                ],
+                meta={"show_upload_button": bool(state.get("show_upload_button"))},
+            )
+        ]
+
+    def _social_contract_upload_messages(self, state: dict) -> list[BotMessage]:
+        state["show_upload_button"] = True
 
         return [
             BotMessage(
                 text=(
                     "Для примера можно подготовить и загрузить такие документы.\n\n"
-                    "Этап 1. Для рекомендации в фонде «Защитники Отечества»:\n"
-                    f"{stage_one}\n\n"
-                    "Этап 2. Для подачи в орган соцзащиты:\n"
-                    f"{stage_two}\n\n"
-                    "Часть документов нужна не всем. Загружайте только то, что относится к вашей ситуации."
-                )
+                    f"{self._social_contract_document_list_text()}"
+                ),
+                meta={"show_upload_button": True},
             ),
             BotMessage(
                 text=(
-                    "Ниже можно открыть форму загрузки документов. Пока это демо-режим: "
-                    "файлы остаются только в интерфейсе, не отправляются на сервер и не сохраняются в БД."
+                    "Когда будете готовы, нажмите кнопку «Загрузить файлы» рядом с отправкой сообщения. "
+                    "Это демо-режим: файлы останутся только в интерфейсе и не сохраняются в БД."
                 ),
                 buttons=[
-                    {"label": "Открыть загрузку документов", "value": "action:upload_documents"},
-                    {"label": "Чек-лист документов", "value": "sc:checklist"},
+                    {"label": "Список документов", "value": "sc:checklist"},
                     {"label": "Консультация", "value": "menu:consult"},
                 ],
+                meta={"show_upload_button": True},
             ),
         ]
 
